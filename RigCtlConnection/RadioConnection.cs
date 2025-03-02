@@ -23,25 +23,25 @@ namespace LTRData.RigCtl;
 public class RadioConnection : StreamReader
 {
     #region STATIC
-    static readonly byte[] get_tx_command = Encoding.ASCII.GetBytes("t");
-    static readonly byte[] set_tx_on_command = Encoding.ASCII.GetBytes("T1\n");
-    static readonly byte[] set_tx_off_command = Encoding.ASCII.GetBytes("T0\n");
-    static readonly byte[] get_freq_command = Encoding.ASCII.GetBytes("f");
-    static readonly byte[] set_freq_command = Encoding.ASCII.GetBytes("F");
-    static readonly byte[] set_membank_command = Encoding.ASCII.GetBytes("B");
-    static readonly byte[] set_memch_command = Encoding.ASCII.GetBytes("E");
-    static readonly byte[] get_mode_command = Encoding.ASCII.GetBytes("m");
-    static readonly byte[] set_mode_command = Encoding.ASCII.GetBytes("M");
-    static readonly byte[] get_tx_tone_command = Encoding.ASCII.GetBytes("c");
-    static readonly byte[] get_level_command = Encoding.ASCII.GetBytes("l");
-    static readonly byte[] set_level_command = Encoding.ASCII.GetBytes("L");
-    static readonly byte[] set_vfo_command = Encoding.ASCII.GetBytes("V");
-    static readonly byte[] set_rptr_shift_command = Encoding.ASCII.GetBytes("R");
-    static readonly byte[] _byteArrayZeroChar = [(byte)'\0'];
-    static readonly byte[] _byteArrayQuestionChar = [(byte)'?'];
+    private static readonly byte[] get_tx_command = "t"u8.ToArray();
+    private static readonly byte[] set_tx_on_command = "T1\n"u8.ToArray();
+    private static readonly byte[] set_tx_off_command = "T0\n"u8.ToArray();
+    private static readonly byte[] get_freq_command = "f"u8.ToArray();
+    private static readonly byte[] set_freq_command = "F"u8.ToArray();
+    private static readonly byte[] set_membank_command = "B"u8.ToArray();
+    private static readonly byte[] set_memch_command = "E"u8.ToArray();
+    private static readonly byte[] get_mode_command = "m"u8.ToArray();
+    private static readonly byte[] set_mode_command = "M"u8.ToArray();
+    private static readonly byte[] get_tx_tone_command = "c"u8.ToArray();
+    private static readonly byte[] get_level_command = "l"u8.ToArray();
+    private static readonly byte[] set_level_command = "L"u8.ToArray();
+    private static readonly byte[] set_vfo_command = "V"u8.ToArray();
+    private static readonly byte[] set_rptr_shift_command = "R"u8.ToArray();
+    private static readonly byte[] _byteArrayZeroChar = [0];
+    private static readonly byte[] _byteArrayQuestionChar = "?"u8.ToArray();
     #endregion
 
-    private readonly SemaphoreSlim sync = new(1, 1);
+    private readonly SemaphoreSlim sync = new(initialCount: 1, maxCount: 1);
 
     /// <summary>
     /// Value returned by radio connection to indicate success.
@@ -125,6 +125,13 @@ public class RadioConnection : StreamReader
             base.Dispose(disposing);
         }
     }
+
+    private RadioConnection(Socket socket)
+        : base(new RadioConnectionNetworkStream(socket))
+    {
+    }
+
+    private static string[]? twoElementStringBuffer;
 
     /// <summary>
     /// Closes the underlying stream, releases the unmanaged resources used by the System.IO.StreamReader,
@@ -425,10 +432,10 @@ public class RadioConnection : StreamReader
     /// <summary>
     /// Set frequency.
     /// </summary>
-    /// <param name="freq">Frequency to set</param>
+    /// <param name="freq">Frequency to set in Hz</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Result string from radio</returns>
-    public ValueTask<string?> SetFrequencyAsync(decimal freq, CancellationToken cancellationToken) =>
+    public ValueTask<string?> SetFrequencyAsync(int freq, CancellationToken cancellationToken) =>
         SendCommandAsync(set_freq_command, Encoding.ASCII.GetBytes(freq.ToString("0", NumberFormatInfo.InvariantInfo)), cancellationToken);
 
     /// <summary>
@@ -456,7 +463,7 @@ public class RadioConnection : StreamReader
     /// <returns>Space separated list of supported modes and a result string from the radio</returns>
     public async ValueTask<(string Modes, string Result)> GetAvailableModesAsync(CancellationToken cancellationToken)
     {
-        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? new string[2];
+        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? GetArray<string>(length: 2);
 
         try
         {
@@ -470,6 +477,12 @@ public class RadioConnection : StreamReader
         }
     }
 
+#if NET5_0_OR_GREATER
+    private static T[] GetArray<T>(int length) => GC.AllocateUninitializedArray<T>(length);
+#else
+    private static T[] GetArray<T>(int length) => new T[length];
+#endif
+
     /// <summary>
     /// Get levels available for adjustments in the connected radio.
     /// </summary>
@@ -477,7 +490,7 @@ public class RadioConnection : StreamReader
     /// <returns>Space separated list of supported levels and a result string from the radio</returns>
     public async ValueTask<(string Levels, string Result)> GetAvailableLevelsAsync(CancellationToken cancellationToken)
     {
-        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? new string[2];
+        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? GetArray<string>(length: 2);
 
         try
         {
@@ -504,16 +517,9 @@ public class RadioConnection : StreamReader
     /// Gets curremt frequency from radio.
     /// </summary>
     /// <param name="cancellationToken"></param>
-    /// <returns>Result string from the radio</returns>
+    /// <returns>Result string from the radio in Hz</returns>
     public ValueTask<string?> GetFrequencyAsync(CancellationToken cancellationToken) =>
         SendCommandAsync(get_freq_command, cancellationToken);
-
-    private RadioConnection(Socket socket)
-        : base(new RadioConnectionNetworkStream(socket))
-    {
-    }
-
-    private static string[]? twoElementStringBuffer;
 
     /// <summary>
     /// Gets curremt mode and passband width from radio.
@@ -522,7 +528,7 @@ public class RadioConnection : StreamReader
     /// <returns>Result from the radio split into two string values</returns>
     public async ValueTask<(string Mode, string Passband)> GetModeAndWidthAsync(CancellationToken cancellationToken)
     {
-        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? new string[2];
+        var result = Interlocked.Exchange(ref twoElementStringBuffer, null) ?? GetArray<string>(2);
 
         try
         {
@@ -551,11 +557,11 @@ public class RadioConnection : StreamReader
     /// <param name="passband">Passband width to set in radio</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Result string from the radio</returns>
-    public ValueTask<string?> SetModeAsync(string mode, decimal passband, CancellationToken cancellationToken)
+    public ValueTask<string?> SetModeAsync(string mode, int passband, CancellationToken cancellationToken)
         => SendCommandAsync(set_mode_command, cancellationToken, Encoding.ASCII.GetBytes(mode), Encoding.ASCII.GetBytes(passband.ToString("0", NumberFormatInfo.InvariantInfo)));
 
     /// <summary>
-    /// Sets current mode and passband width in radio.
+    /// Sets current mode in radio.
     /// </summary>
     /// <param name="mode">Mode to set in radio</param>
     /// <param name="cancellationToken"></param>

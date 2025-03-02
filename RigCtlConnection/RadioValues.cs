@@ -61,7 +61,7 @@ public static class RadioValues
     /// <param name="frequency">Current frequency</param>
     /// <param name="mode">Current mode</param>
     /// <returns>Default tuning step</returns>
-    public static decimal GetTuningStep(decimal frequency, string? mode) => mode switch
+    public static int GetTuningStep(int frequency, string? mode) => mode switch
     {
         "USB" => 2500,
         "LSB" => 2500,
