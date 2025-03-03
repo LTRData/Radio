@@ -37,7 +37,7 @@ public class RadioConnection : StreamReader
     private static readonly byte[] set_level_command = "L"u8.ToArray();
     private static readonly byte[] set_vfo_command = "V"u8.ToArray();
     private static readonly byte[] set_rptr_shift_command = "R"u8.ToArray();
-    private static readonly byte[] _byteArrayZeroChar = [0];
+    private static readonly byte[] _byteArrayZeroChar = "0"u8.ToArray();
     private static readonly byte[] _byteArrayQuestionChar = "?"u8.ToArray();
     #endregion
 
