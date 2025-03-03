@@ -403,24 +403,27 @@ public class RadioConnection : StreamReader
             buffer[i] = (byte)'\n';
             i++;
 
-            await sync.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await BaseStream.WriteAsync(buffer.AsMemory(0, i), cancellationToken).ConfigureAwait(false);
-
-                for (var r = 0; r < resultLines.Count; r++)
+                await sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    resultLines[r] = await this.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                    await BaseStream.WriteAsync(buffer.AsMemory(0, i), cancellationToken).ConfigureAwait(false);
+
+                    for (var r = 0; r < resultLines.Count; r++)
+                    {
+                        resultLines[r] = await this.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                finally
+                {
+                    sync.Release();
                 }
             }
             catch
             {
                 Dispose();
                 throw;
-            }
-            finally
-            {
-                sync.Release();
             }
         }
         finally
