@@ -109,8 +109,13 @@ public class RadioConnection : StreamReader
     /// <summary>
     /// Returns whether radio connection is active or not.
     /// </summary>
-    public bool IsConnected => BaseStream is RadioConnectionNetworkStream stream
+    public bool IsConnected => !IsDisposed && BaseStream is RadioConnectionNetworkStream stream
         && !stream.IsDisposed && stream.Socket is not null && stream.Socket.Connected;
+
+    /// <summary>
+    /// Returns whether this instance has been disposed.
+    /// </summary>
+    public bool IsDisposed { get; private set; }
 
     private sealed class RadioConnectionNetworkStream(Socket socket) : NetworkStream(socket)
     {
@@ -141,6 +146,8 @@ public class RadioConnection : StreamReader
     /// resources.</param>
     protected override void Dispose(bool disposing)
     {
+        IsDisposed = true;
+
         if (disposing)
         {
             sync.Dispose();
